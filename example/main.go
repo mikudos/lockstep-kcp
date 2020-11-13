@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mikudos/lockstep-kcp"
+	"github.com/mikudos/lockstep-kcp/scene"
 	"github.com/xtaci/kcp-go"
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -17,6 +18,8 @@ func main() {
 	option := lockstep.Option{Addr: "127.0.0.1:12345", Block: block, DataShards: 10, ParityShards: 3}
 	server := lockstep.New(&option)
 	log.Println("server started")
+	sc := scene.New(func(sc scene.IScene) {}, func(sc scene.IScene) {}, func(sc scene.IScene) {})
+	server.RegisterScene("testScene", sc)
 	server.Start(func() bool {
 		go client()
 		return true

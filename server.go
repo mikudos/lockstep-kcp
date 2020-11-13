@@ -3,13 +3,14 @@ package lockstep
 import (
 	"log"
 
+	"github.com/mikudos/lockstep-kcp/scene"
 	"github.com/xtaci/kcp-go/v5"
 )
 
 type (
 	// IServer IServer
 	IServer interface {
-		RegisterScene(string, IScene)
+		RegisterScene(string, scene.IScene)
 		Start(func() bool)
 	}
 
@@ -23,7 +24,7 @@ type (
 	// Server Server
 	Server struct {
 		option   Option
-		sceneMap map[string]IScene
+		sceneMap map[string]scene.IScene
 	}
 )
 
@@ -34,13 +35,14 @@ func New(option *Option) IServer {
 	}
 	return &Server{
 		option:   *option,
-		sceneMap: make(map[string]IScene),
+		sceneMap: make(map[string]scene.IScene),
 	}
 }
 
 // RegisterScene RegisterScene
-func (s *Server) RegisterScene(key string, scene IScene) {
+func (s *Server) RegisterScene(key string, scene scene.IScene) {
 	s.sceneMap[key] = scene
+
 	scene.Run()
 }
 
@@ -51,46 +53,22 @@ func (s *Server) Start(fn func() bool) {
 		if ok := fn(); !ok {
 			log.Fatal("condition function return false")
 		}
-		go s.Frame()
+		go s.LoopScene()
 		for {
-			s, err := listener.AcceptKCP()
+			session, err := listener.AcceptKCP()
 			if err != nil {
 				log.Fatal(err)
 			}
-			go handleEcho(s)
+			go s.HandleSession(session)
 		}
 	} else {
 		log.Fatal(err)
 	}
 }
 
-// Frame Frame
-func (s *Server) Frame() {
+// LoopScene LoopScene
+func (s *Server) LoopScene() {
 	for _, s := range s.sceneMap {
 		s.Frame()
-	}
-}
-
-// handleEcho send back everything it received
-func handleEcho(conn *kcp.UDPSession) {
-	conn.SetNoDelay(1, 10, 2, 1)
-	conn.SetStreamMode(true)
-	conn.SetWindowSize(4096, 4096)
-	conn.SetReadBuffer(4 * 1024 * 1024)
-	conn.SetWriteBuffer(4 * 1024 * 1024)
-	conn.SetACKNoDelay(true)
-	buf := make([]byte, 4096)
-	for {
-		n, err := conn.Read(buf)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		n, err = conn.Write(buf[:n])
-		if err != nil {
-			log.Println(err)
-			return
-		}
 	}
 }
